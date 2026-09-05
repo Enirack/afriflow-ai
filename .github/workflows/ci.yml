@@ -39,12 +39,18 @@ jobs:
       - name: Check container is valid
         run: php bin/console lint:container
 
-      - name: Run tests
+      - name: Run migrations
         env:
           APP_ENV: test
           # No "_test" here: Doctrine's dbname_suffix (config/packages/doctrine.yaml,
           # when@test) appends it automatically, matching the "afriflow_test"
           # database the postgres service above actually creates.
+          DATABASE_URL: postgresql://afriflow:afriflow@127.0.0.1:5432/afriflow?serverVersion=16&charset=utf8
+        run: php bin/console doctrine:migrations:migrate --no-interaction
+
+      - name: Run tests
+        env:
+          APP_ENV: test
           DATABASE_URL: postgresql://afriflow:afriflow@127.0.0.1:5432/afriflow?serverVersion=16&charset=utf8
         run: php bin/phpunit
 

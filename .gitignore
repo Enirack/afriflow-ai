@@ -1,0 +1,14 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+
+# Docker
+docker-compose.override.yml
+
+# Env
+.env.local
+.env.*.local

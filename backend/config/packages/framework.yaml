@@ -8,8 +8,21 @@ framework:
     #esi: true
     #fragments: true
 
+    rate_limiter:
+        register:
+            policy: 'sliding_window'
+            limit: 5
+            interval: '1 hour'
+
 when@test:
     framework:
         test: true
         session:
             storage_factory_id: session.storage.factory.mock_file
+        rate_limiter:
+            # Many tests register from the same client "IP" in quick succession;
+            # a production-sized limit would make the suite flaky.
+            register:
+                policy: 'sliding_window'
+                limit: 1000
+                interval: '1 hour'

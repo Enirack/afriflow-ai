@@ -55,9 +55,14 @@ final class CopilotService
             $toolResults = [];
             foreach ($response->toolUses() as $toolUse) {
                 $tool = $this->findTool($toolUse['name']);
-                $result = $tool
-                    ? $tool->execute($toolUse['input'], $company)
-                    : ['error' => sprintf('Outil "%s" inconnu.', $toolUse['name'])];
+
+                try {
+                    $result = $tool
+                        ? $tool->execute($toolUse['input'], $company)
+                        : ['error' => sprintf('Outil "%s" inconnu.', $toolUse['name'])];
+                } catch (\Throwable) {
+                    $result = ['error' => "Cet outil n'a pas pu traiter les paramètres fournis."];
+                }
 
                 $toolResults[] = [
                     'type' => 'tool_result',

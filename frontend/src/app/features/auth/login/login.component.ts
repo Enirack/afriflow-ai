@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
+import { NotificationService } from '../../../core/notifications/notification.service';
 
 @Component({
   selector: 'app-login',
@@ -15,6 +16,10 @@ import { AuthService } from '../../../core/auth/auth.service';
         </div>
         <h1>Connexion</h1>
         <p class="subtitle">Accédez au tableau de bord de votre entreprise.</p>
+
+        @if (sessionMessage()) {
+          <div class="alert-info">{{ sessionMessage() }}</div>
+        }
 
         @if (error()) {
           <div class="alert-error">{{ error() }}</div>
@@ -106,9 +111,11 @@ export class LoginComponent {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly notifications = inject(NotificationService);
 
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly sessionMessage = signal(this.notifications.consume());
 
   protected readonly form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],

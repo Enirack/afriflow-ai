@@ -85,7 +85,9 @@ interface ChatMessage {
         bottom: 68px;
         right: 0;
         width: 340px;
+        max-width: calc(100vw - 48px);
         height: 440px;
+        max-height: calc(100vh - 120px);
         display: flex;
         flex-direction: column;
         padding: 0;

@@ -59,4 +59,77 @@ class SaleWorkflowTest extends WebTestCase
         self::assertSame('5000.00', $updatedSale['balanceDue']);
         self::assertSame('partially_paid', $updatedSale['status']);
     }
+
+    public function testPaymentExceedingBalanceDueIsRejected(): void
+    {
+        $client = static::createClient();
+
+        $this->registerCompany($client, 'Boutique Awa', 'overpay@boutique-awa.sn');
+        $token = $this->login($client, 'overpay@boutique-awa.sn');
+
+        $this->apiRequest($client, 'POST', '/api/products', $token, [
+            'name' => 'T-shirt',
+            'unitPrice' => '7500',
+            'stockQuantity' => 50,
+        ]);
+        $product = $this->jsonResponse($client);
+
+        $this->apiRequest($client, 'POST', '/api/sales', $token, [
+            'paymentMethod' => 'cash',
+            'discount' => '0',
+            'items' => [['productId' => $product['id'], 'quantity' => 1]],
+        ]);
+        $sale = $this->jsonResponse($client);
+
+        $this->apiRequest($client, 'POST', '/api/payments', $token, [
+            'saleId' => $sale['id'],
+            'amount' => '999999',
+            'method' => 'cash',
+        ]);
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    public function testDiscountExceedingItemsTotalIsRejected(): void
+    {
+        $client = static::createClient();
+
+        $this->registerCompany($client, 'Boutique Awa', 'bigdiscount@boutique-awa.sn');
+        $token = $this->login($client, 'bigdiscount@boutique-awa.sn');
+
+        $this->apiRequest($client, 'POST', '/api/products', $token, [
+            'name' => 'T-shirt',
+            'unitPrice' => '7500',
+            'stockQuantity' => 50,
+        ]);
+        $product = $this->jsonResponse($client);
+
+        $this->apiRequest($client, 'POST', '/api/sales', $token, [
+            'paymentMethod' => 'cash',
+            'discount' => '999999',
+            'items' => [['productId' => $product['id'], 'quantity' => 1]],
+        ]);
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    public function testSellingMoreThanAvailableStockIsRejected(): void
+    {
+        $client = static::createClient();
+
+        $this->registerCompany($client, 'Boutique Awa', 'oversell@boutique-awa.sn');
+        $token = $this->login($client, 'oversell@boutique-awa.sn');
+
+        $this->apiRequest($client, 'POST', '/api/products', $token, [
+            'name' => 'T-shirt',
+            'unitPrice' => '7500',
+            'stockQuantity' => 2,
+        ]);
+        $product = $this->jsonResponse($client);
+
+        $this->apiRequest($client, 'POST', '/api/sales', $token, [
+            'paymentMethod' => 'cash',
+            'discount' => '0',
+            'items' => [['productId' => $product['id'], 'quantity' => 3]],
+        ]);
+        self::assertResponseStatusCodeSame(422);
+    }
 }

@@ -205,11 +205,12 @@ final class BusinessStatsService
     private function salesInRange(\DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
         return $this->entityManager->createQueryBuilder()
-            ->select('s', 'i', 'p', 'pay')
+            ->select('s', 'i', 'p', 'pay', 'c')
             ->from(Sale::class, 's')
             ->leftJoin('s.items', 'i')
             ->leftJoin('i.product', 'p')
             ->leftJoin('s.payments', 'pay')
+            ->leftJoin('s.customer', 'c')
             ->where('s.saleDate BETWEEN :from AND :to')
             ->setParameter('from', $from)
             ->setParameter('to', $to)

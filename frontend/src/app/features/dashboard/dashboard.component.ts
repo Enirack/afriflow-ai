@@ -62,6 +62,13 @@ type Period = 'today' | 'week' | 'month';
       </div>
     </div>
 
+    @if (loadError()) {
+      <div class="alert-error">
+        {{ loadError() }}
+        <button type="button" class="btn btn-secondary btn-retry" (click)="reloadAll()">Réessayer</button>
+      </div>
+    }
+
     @if (analysisReport()) {
       <div class="card report-card">
         <div class="card-header">
@@ -283,6 +290,10 @@ type Period = 'today' | 'week' | 'month';
       .card-header h2 {
         margin: 0;
       }
+
+      .btn-retry {
+        margin-left: 12px;
+      }
     `,
   ],
 })
@@ -302,8 +313,13 @@ export class DashboardComponent {
   protected readonly topCustomers = signal<TopCustomer[]>([]);
   protected readonly revenueSeries = signal<RevenuePoint[]>([]);
   protected readonly recentSales = signal<Sale[]>([]);
+  protected readonly loadError = signal<string | null>(null);
 
   constructor() {
+    this.reloadAll();
+  }
+
+  reloadAll(): void {
     this.loadStats();
     this.loadRecentSales();
   }
@@ -352,20 +368,32 @@ export class DashboardComponent {
       topProducts: this.statsService.topProducts(range),
       topCustomers: this.statsService.topCustomers(range),
       revenueSeries: this.statsService.revenueSeries(range),
-    }).subscribe(({ summary, topProducts, topCustomers, revenueSeries }) => {
-      this.summary.set(summary);
-      this.topProducts.set(topProducts);
-      this.topCustomers.set(topCustomers);
-      this.revenueSeries.set(revenueSeries);
+    }).subscribe({
+      next: ({ summary, topProducts, topCustomers, revenueSeries }) => {
+        this.summary.set(summary);
+        this.topProducts.set(topProducts);
+        this.topCustomers.set(topCustomers);
+        this.revenueSeries.set(revenueSeries);
+        this.loadError.set(null);
+      },
+      error: () => {
+        this.loadError.set('Impossible de charger les statistiques.');
+      },
     });
   }
 
   private loadRecentSales(): void {
-    this.saleService.list().subscribe((collection) => {
-      const sorted = [...collection.member].sort(
-        (a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime(),
-      );
-      this.recentSales.set(sorted.slice(0, 5));
+    this.saleService.list().subscribe({
+      next: (collection) => {
+        const sorted = [...collection.member].sort(
+          (a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime(),
+        );
+        this.recentSales.set(sorted.slice(0, 5));
+        this.loadError.set(null);
+      },
+      error: () => {
+        this.loadError.set('Impossible de charger les ventes récentes.');
+      },
     });
   }
 

@@ -12,7 +12,7 @@ import { Customer } from '../../core/models/customer.model';
         <h1>Clients</h1>
         <p class="page-subtitle">Retrouvez vos clients et leurs coordonnées.</p>
       </div>
-      <button class="btn btn-primary" type="button" (click)="showForm.set(!showForm())">
+      <button class="btn btn-primary" type="button" (click)="toggleForm()">
         {{ showForm() ? 'Annuler' : '+ Nouveau client' }}
       </button>
     </div>
@@ -49,7 +49,14 @@ import { Customer } from '../../core/models/customer.model';
     }
 
     <div class="card">
-      @if (customers().length === 0) {
+      @if (loadError()) {
+        <div class="alert-error">
+          {{ loadError() }}
+          <button type="button" class="btn btn-secondary btn-retry" (click)="reload()">Réessayer</button>
+        </div>
+      } @else if (loading()) {
+        <div class="empty-state">Chargement...</div>
+      } @else if (customers().length === 0) {
         <div class="empty-state">Aucun client pour le moment.</div>
       } @else {
         <table class="data-table">
@@ -98,6 +105,10 @@ import { Customer } from '../../core/models/customer.model';
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 0 16px;
       }
+
+      .btn-retry {
+        margin-left: 12px;
+      }
     `,
   ],
 })
@@ -108,7 +119,9 @@ export class CustomersComponent {
   protected readonly customers = signal<Customer[]>([]);
   protected readonly showForm = signal(false);
   protected readonly saving = signal(false);
+  protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
+  protected readonly loadError = signal<string | null>(null);
 
   protected readonly form = this.fb.nonNullable.group({
     name: ['', Validators.required],
@@ -121,8 +134,27 @@ export class CustomersComponent {
     this.reload();
   }
 
-  private reload(): void {
-    this.customerService.list().subscribe((collection) => this.customers.set(collection.member));
+  reload(): void {
+    this.loading.set(true);
+    this.loadError.set(null);
+    this.customerService.list().subscribe({
+      next: (collection) => {
+        this.customers.set(collection.member);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.loadError.set('Impossible de charger les clients.');
+      },
+    });
+  }
+
+  toggleForm(): void {
+    if (this.showForm()) {
+      this.form.reset({ name: '', phone: '', email: '', address: '' });
+      this.error.set(null);
+    }
+    this.showForm.set(!this.showForm());
   }
 
   submit(): void {

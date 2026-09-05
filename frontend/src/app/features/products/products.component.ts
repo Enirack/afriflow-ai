@@ -13,7 +13,7 @@ import { FcfaPipe } from '../../shared/pipes/fcfa.pipe';
         <h1>Produits</h1>
         <p class="page-subtitle">Gérez votre catalogue et vos niveaux de stock.</p>
       </div>
-      <button class="btn btn-primary" type="button" (click)="showForm.set(!showForm())">
+      <button class="btn btn-primary" type="button" (click)="toggleForm()">
         {{ showForm() ? 'Annuler' : '+ Nouveau produit' }}
       </button>
     </div>
@@ -50,7 +50,14 @@ import { FcfaPipe } from '../../shared/pipes/fcfa.pipe';
     }
 
     <div class="card">
-      @if (products().length === 0) {
+      @if (loadError()) {
+        <div class="alert-error">
+          {{ loadError() }}
+          <button type="button" class="btn btn-secondary btn-retry" (click)="reload()">Réessayer</button>
+        </div>
+      } @else if (loading()) {
+        <div class="empty-state">Chargement...</div>
+      } @else if (products().length === 0) {
         <div class="empty-state">Aucun produit pour le moment.</div>
       } @else {
         <table class="data-table">
@@ -99,6 +106,10 @@ import { FcfaPipe } from '../../shared/pipes/fcfa.pipe';
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 0 16px;
       }
+
+      .btn-retry {
+        margin-left: 12px;
+      }
     `,
   ],
 })
@@ -109,7 +120,9 @@ export class ProductsComponent {
   protected readonly products = signal<Product[]>([]);
   protected readonly showForm = signal(false);
   protected readonly saving = signal(false);
+  protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
+  protected readonly loadError = signal<string | null>(null);
 
   protected readonly form = this.fb.nonNullable.group({
     name: ['', Validators.required],
@@ -122,8 +135,27 @@ export class ProductsComponent {
     this.reload();
   }
 
-  private reload(): void {
-    this.productService.list().subscribe((collection) => this.products.set(collection.member));
+  reload(): void {
+    this.loading.set(true);
+    this.loadError.set(null);
+    this.productService.list().subscribe({
+      next: (collection) => {
+        this.products.set(collection.member);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.loadError.set('Impossible de charger les produits.');
+      },
+    });
+  }
+
+  toggleForm(): void {
+    if (this.showForm()) {
+      this.form.reset({ name: '', sku: '', unitPrice: 0, stockQuantity: 0 });
+      this.error.set(null);
+    }
+    this.showForm.set(!this.showForm());
   }
 
   submit(): void {

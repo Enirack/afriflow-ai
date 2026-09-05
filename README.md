@@ -242,7 +242,17 @@ paiement enregistré via `POST /api/payments`.
 ## Sécurité
 
 - Authentification par JWT, un utilisateur appartenant à une seule entreprise
-  (isolation des données multi-tenant au niveau applicatif).
+  (isolation des données multi-tenant au niveau applicatif via un filtre SQL
+  Doctrine appliqué globalement, y compris sur les écritures — voir
+  `TenantIsolationTest`).
+- Rate limiting sur `/api/login_check` (5 tentatives / 15 min) et
+  `/api/register` (5 / heure) pour limiter le brute-force et la création
+  massive de comptes.
+- Validations métier au-delà du simple typage : impossible de survendre un
+  produit, d'appliquer une remise supérieure au total d'une vente, ou
+  d'enregistrer un paiement supérieur au solde dû.
+- Plages de dates des statistiques bornées (366 jours max) pour éviter un
+  déni de service par requête `from`/`to` disproportionnée.
 - Validation des entrées via le composant Validator de Symfony.
 - Secrets (clés JWT, `APP_SECRET`, identifiants base de données) exclus du
   dépôt via `.gitignore` et gérés par variables d'environnement.
@@ -258,7 +268,9 @@ paiement enregistré via `POST /api/payments`.
       sélecteur de période, graphique d'évolution du CA, top produits/clients
 - [x] Jour 5 — Copilote IA : chat avec function calling (API Claude) sur les
       données métier réelles, rapport d'activité automatique
-- [ ] Jour 6 — Audit qualité : sécurité, UX, accessibilité, tests
+- [x] Jour 6 — Audit qualité : faille IDOR corrigée, validations financières
+      (survente, remise/paiement excessifs), rate limiting, N+1, gestion
+      d'erreurs et sidebar responsive côté frontend
 - [ ] Jour 7 — Déploiement : environnement de démo, documentation finale
 
 ## Licence

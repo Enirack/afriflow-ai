@@ -2,17 +2,17 @@
 
 namespace App\Entity;
 
-use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Get;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
+/**
+ * Not exposed as an API Platform resource: it has no company_id to scope by
+ * (it *is* the tenant boundary), so a generic Get/GetCollection would leak
+ * every company's data across tenants. The only legitimate read path is
+ * "my own company", already served by GET /api/me (MeController).
+ */
 #[ORM\Entity]
-#[ApiResource(
-    operations: [new Get()],
-    security: "is_granted('ROLE_USER')",
-)]
 class Company
 {
     #[ORM\Id]

@@ -6,6 +6,7 @@ use App\Dto\StatsQuery;
 use App\Service\BusinessStatsService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -18,7 +19,7 @@ final class StatsController extends AbstractController
     }
 
     #[Route('/summary', name: 'app_stats_summary', methods: ['GET'])]
-    public function summary(#[MapQueryString] StatsQuery $query): JsonResponse
+    public function summary(#[MapQueryString(validationFailedStatusCode: Response::HTTP_UNPROCESSABLE_ENTITY)] StatsQuery $query): JsonResponse
     {
         [$from, $to] = $query->range();
 
@@ -26,7 +27,7 @@ final class StatsController extends AbstractController
     }
 
     #[Route('/top-products', name: 'app_stats_top_products', methods: ['GET'])]
-    public function topProducts(#[MapQueryString] StatsQuery $query): JsonResponse
+    public function topProducts(#[MapQueryString(validationFailedStatusCode: Response::HTTP_UNPROCESSABLE_ENTITY)] StatsQuery $query): JsonResponse
     {
         [$from, $to] = $query->range();
 
@@ -34,7 +35,7 @@ final class StatsController extends AbstractController
     }
 
     #[Route('/top-customers', name: 'app_stats_top_customers', methods: ['GET'])]
-    public function topCustomers(#[MapQueryString] StatsQuery $query): JsonResponse
+    public function topCustomers(#[MapQueryString(validationFailedStatusCode: Response::HTTP_UNPROCESSABLE_ENTITY)] StatsQuery $query): JsonResponse
     {
         [$from, $to] = $query->range();
 
@@ -42,7 +43,7 @@ final class StatsController extends AbstractController
     }
 
     #[Route('/revenue-series', name: 'app_stats_revenue_series', methods: ['GET'])]
-    public function revenueSeries(#[MapQueryString] StatsQuery $query): JsonResponse
+    public function revenueSeries(#[MapQueryString(validationFailedStatusCode: Response::HTTP_UNPROCESSABLE_ENTITY)] StatsQuery $query): JsonResponse
     {
         [$from, $to] = $query->range();
 

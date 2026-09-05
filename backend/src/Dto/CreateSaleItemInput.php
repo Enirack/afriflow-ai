@@ -12,5 +12,6 @@ class CreateSaleItemInput
     #[Assert\Positive]
     public int $quantity = 1;
 
+    #[Assert\PositiveOrZero]
     public ?string $unitPrice = null;
 }

@@ -79,4 +79,18 @@ class StatsTest extends WebTestCase
         self::assertSame('Fatou Sy', $topCustomers[0]['name']);
         self::assertSame('18000.00', $topCustomers[0]['totalSpent']);
     }
+
+    public function testExcessiveDateRangeIsRejected(): void
+    {
+        $client = static::createClient();
+
+        $this->registerCompany($client, 'Boutique Awa', 'daterange@boutique-awa.sn');
+        $token = $this->login($client, 'daterange@boutique-awa.sn');
+
+        $this->apiRequest($client, 'GET', '/api/stats/revenue-series?from=0001-01-01&to=9999-12-31', $token);
+        self::assertResponseStatusCodeSame(422);
+
+        $this->apiRequest($client, 'GET', '/api/stats/summary?from=2026-06-01&to=2026-01-01', $token);
+        self::assertResponseStatusCodeSame(422);
+    }
 }

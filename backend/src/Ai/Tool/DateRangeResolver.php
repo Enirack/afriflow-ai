@@ -4,6 +4,8 @@ namespace App\Ai\Tool;
 
 final class DateRangeResolver
 {
+    private const MAX_RANGE_DAYS = 366;
+
     /**
      * @param array<string, mixed> $input
      *
@@ -11,10 +13,16 @@ final class DateRangeResolver
      */
     public static function resolve(array $input): array
     {
-        $to = isset($input['to']) ? new \DateTimeImmutable($input['to']) : new \DateTimeImmutable('now');
-        $from = isset($input['from'])
-            ? new \DateTimeImmutable($input['from'])
-            : new \DateTimeImmutable('first day of this month 00:00:00');
+        $to = self::parse($input['to'] ?? null) ?? new \DateTimeImmutable('now');
+        $from = self::parse($input['from'] ?? null) ?? new \DateTimeImmutable('first day of this month 00:00:00');
+
+        if ($from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+
+        if ($from->diff($to)->days > self::MAX_RANGE_DAYS) {
+            $from = $to->modify(sprintf('-%d days', self::MAX_RANGE_DAYS));
+        }
 
         return [$from, $to];
     }
@@ -34,5 +42,18 @@ final class DateRangeResolver
                 'description' => "Date de fin (AAAA-MM-JJ). Par défaut, aujourd'hui.",
             ],
         ];
+    }
+
+    private static function parse(mixed $value): ?\DateTimeImmutable
+    {
+        if (!\is_string($value) || '' === $value) {
+            return null;
+        }
+
+        try {
+            return new \DateTimeImmutable($value);
+        } catch (\Exception) {
+            return null;
+        }
     }
 }

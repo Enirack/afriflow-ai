@@ -14,6 +14,7 @@ use App\Enum\PaymentMethod;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 final class CreateSaleProcessor implements ProcessorInterface
 {
@@ -40,18 +41,34 @@ final class CreateSaleProcessor implements ProcessorInterface
         }
 
         $sale = new Sale($company, $user, PaymentMethod::from($data->paymentMethod), $customer);
-        $sale->setDiscount($data->discount);
 
+        $itemsTotal = '0.00';
         foreach ($data->items as $itemInput) {
             $product = $this->entityManager->getRepository(Product::class)->find($itemInput->productId);
             if (!$product) {
                 throw new NotFoundHttpException(sprintf('Product #%d not found.', $itemInput->productId));
             }
 
+            if ($product->getStockQuantity() < $itemInput->quantity) {
+                throw new UnprocessableEntityHttpException(sprintf(
+                    'Stock insuffisant pour "%s" (disponible : %d, demandé : %d).',
+                    $product->getName(),
+                    $product->getStockQuantity(),
+                    $itemInput->quantity,
+                ));
+            }
+
             $unitPrice = $itemInput->unitPrice ?? $product->getUnitPrice();
             $sale->addItem(new SaleItem($sale, $product, $itemInput->quantity, $unitPrice));
             $product->setStockQuantity($product->getStockQuantity() - $itemInput->quantity);
+            $itemsTotal = bcadd($itemsTotal, bcmul((string) $itemInput->quantity, $unitPrice, 2), 2);
         }
+
+        if (bccomp($data->discount, $itemsTotal, 2) > 0) {
+            throw new UnprocessableEntityHttpException('La remise ne peut pas dépasser le total des articles.');
+        }
+
+        $sale->setDiscount($data->discount);
 
         $this->entityManager->persist($sale);
         $this->entityManager->flush();

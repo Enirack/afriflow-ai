@@ -29,7 +29,7 @@ import { FcfaPipe } from '../../shared/pipes/fcfa.pipe';
         <h1>Ventes</h1>
         <p class="page-subtitle">Enregistrez vos ventes et suivez les paiements.</p>
       </div>
-      <button class="btn btn-primary" type="button" (click)="showForm.set(!showForm())">
+      <button class="btn btn-primary" type="button" (click)="toggleForm()">
         {{ showForm() ? 'Annuler' : '+ Nouvelle vente' }}
       </button>
     </div>
@@ -103,7 +103,14 @@ import { FcfaPipe } from '../../shared/pipes/fcfa.pipe';
     }
 
     <div class="card">
-      @if (sales().length === 0) {
+      @if (loadError()) {
+        <div class="alert-error">
+          {{ loadError() }}
+          <button type="button" class="btn btn-secondary btn-retry" (click)="reload()">Réessayer</button>
+        </div>
+      } @else if (loading()) {
+        <div class="empty-state">Chargement...</div>
+      } @else if (sales().length === 0) {
         <div class="empty-state">Aucune vente pour le moment.</div>
       } @else {
         <table class="data-table">
@@ -140,22 +147,28 @@ import { FcfaPipe } from '../../shared/pipes/fcfa.pipe';
                           min="1"
                           [formControl]="paymentAmount"
                           placeholder="Montant"
+                          [disabled]="paymentSaving()"
                         />
                         <button
                           type="button"
                           class="btn btn-primary btn-sm"
                           (click)="confirmPayment(sale)"
+                          [disabled]="paymentSaving()"
                         >
-                          Valider
+                          {{ paymentSaving() ? '...' : 'Valider' }}
                         </button>
                         <button
                           type="button"
                           class="btn btn-secondary btn-sm"
-                          (click)="payingForSaleId.set(null)"
+                          (click)="cancelPayment()"
+                          [disabled]="paymentSaving()"
                         >
                           Annuler
                         </button>
                       </div>
+                      @if (paymentError()) {
+                        <div class="payment-error">{{ paymentError() }}</div>
+                      }
                     } @else {
                       <button
                         type="button"
@@ -255,6 +268,16 @@ import { FcfaPipe } from '../../shared/pipes/fcfa.pipe';
         border: 1px solid var(--color-border);
         border-radius: 6px;
       }
+
+      .payment-error {
+        color: var(--color-danger);
+        font-size: 12px;
+        margin-top: 4px;
+      }
+
+      .btn-retry {
+        margin-left: 12px;
+      }
     `,
   ],
 })
@@ -273,10 +296,14 @@ export class SalesComponent {
   protected readonly customers = signal<Customer[]>([]);
   protected readonly showForm = signal(false);
   protected readonly saving = signal(false);
+  protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
+  protected readonly loadError = signal<string | null>(null);
 
   protected readonly payingForSaleId = signal<number | null>(null);
   protected readonly paymentAmount = new FormControl<number | null>(null);
+  protected readonly paymentSaving = signal(false);
+  protected readonly paymentError = signal<string | null>(null);
 
   protected readonly form = this.fb.nonNullable.group({
     customerId: this.fb.control<number | null>(null),
@@ -293,19 +320,38 @@ export class SalesComponent {
     this.reload();
   }
 
-  private reload(): void {
+  reload(): void {
+    this.loading.set(true);
+    this.loadError.set(null);
     forkJoin({
       sales: this.saleService.list(),
       products: this.productService.list(),
       customers: this.customerService.list(),
-    }).subscribe(({ sales, products, customers }) => {
-      const sorted = [...sales.member].sort(
-        (a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime(),
-      );
-      this.sales.set(sorted);
-      this.products.set(products.member);
-      this.customers.set(customers.member);
+    }).subscribe({
+      next: ({ sales, products, customers }) => {
+        const sorted = [...sales.member].sort(
+          (a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime(),
+        );
+        this.sales.set(sorted);
+        this.products.set(products.member);
+        this.customers.set(customers.member);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.loadError.set('Impossible de charger les ventes.');
+      },
     });
+  }
+
+  toggleForm(): void {
+    if (this.showForm()) {
+      this.form.reset({ customerId: null, paymentMethod: 'cash', discount: 0 });
+      this.itemRowKey = 0;
+      this.itemRows.set([this.createItemRow()]);
+      this.error.set(null);
+    }
+    this.showForm.set(!this.showForm());
   }
 
   private createItemRow() {
@@ -359,6 +405,14 @@ export class SalesComponent {
       return;
     }
 
+    const productIds = rows.map((row) => row.productId.value);
+    if (new Set(productIds).size !== productIds.length) {
+      this.error.set(
+        'Un même produit apparaît sur plusieurs lignes : additionnez les quantités sur une seule ligne.',
+      );
+      return;
+    }
+
     this.saving.set(true);
     this.error.set(null);
 
@@ -398,7 +452,13 @@ export class SalesComponent {
 
   startPayment(sale: Sale): void {
     this.paymentAmount.setValue(Number(sale.balanceDue));
+    this.paymentError.set(null);
     this.payingForSaleId.set(sale.id);
+  }
+
+  cancelPayment(): void {
+    this.payingForSaleId.set(null);
+    this.paymentError.set(null);
   }
 
   confirmPayment(sale: Sale): void {
@@ -407,15 +467,25 @@ export class SalesComponent {
       return;
     }
 
+    this.paymentSaving.set(true);
+    this.paymentError.set(null);
+
     this.saleService
       .recordPayment({
         saleId: sale.id,
         amount: String(amount),
         method: sale.paymentMethod,
       })
-      .subscribe(() => {
-        this.payingForSaleId.set(null);
-        this.reload();
+      .subscribe({
+        next: () => {
+          this.paymentSaving.set(false);
+          this.payingForSaleId.set(null);
+          this.reload();
+        },
+        error: () => {
+          this.paymentSaving.set(false);
+          this.paymentError.set('Impossible d\'enregistrer ce paiement.');
+        },
       });
   }
 }

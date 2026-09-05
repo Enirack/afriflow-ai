@@ -10,6 +10,7 @@ use App\Entity\Sale;
 use App\Enum\PaymentMethod;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 final class CreatePaymentProcessor implements ProcessorInterface
 {
@@ -24,6 +25,14 @@ final class CreatePaymentProcessor implements ProcessorInterface
         $sale = $this->entityManager->getRepository(Sale::class)->find($data->saleId);
         if (!$sale) {
             throw new NotFoundHttpException('Sale not found.');
+        }
+
+        if (bccomp($data->amount, $sale->getBalanceDue(), 2) > 0) {
+            throw new UnprocessableEntityHttpException(sprintf(
+                'Le montant du paiement (%s) dépasse le solde restant dû (%s).',
+                $data->amount,
+                $sale->getBalanceDue(),
+            ));
         }
 
         $payment = new Payment($sale, $data->amount, PaymentMethod::from($data->method));

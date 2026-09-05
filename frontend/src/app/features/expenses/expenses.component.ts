@@ -18,7 +18,7 @@ import { FcfaPipe } from '../../shared/pipes/fcfa.pipe';
         <h1>Dépenses</h1>
         <p class="page-subtitle">Suivez les sorties d'argent de votre entreprise.</p>
       </div>
-      <button class="btn btn-primary" type="button" (click)="showForm.set(!showForm())">
+      <button class="btn btn-primary" type="button" (click)="toggleForm()">
         {{ showForm() ? 'Annuler' : '+ Nouvelle dépense' }}
       </button>
     </div>
@@ -59,7 +59,14 @@ import { FcfaPipe } from '../../shared/pipes/fcfa.pipe';
     }
 
     <div class="card">
-      @if (expenses().length === 0) {
+      @if (loadError()) {
+        <div class="alert-error">
+          {{ loadError() }}
+          <button type="button" class="btn btn-secondary btn-retry" (click)="reload()">Réessayer</button>
+        </div>
+      } @else if (loading()) {
+        <div class="empty-state">Chargement...</div>
+      } @else if (expenses().length === 0) {
         <div class="empty-state">Aucune dépense pour le moment.</div>
       } @else {
         <table class="data-table">
@@ -108,6 +115,10 @@ import { FcfaPipe } from '../../shared/pipes/fcfa.pipe';
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 0 16px;
       }
+
+      .btn-retry {
+        margin-left: 12px;
+      }
     `,
   ],
 })
@@ -121,7 +132,9 @@ export class ExpensesComponent {
   protected readonly expenses = signal<Expense[]>([]);
   protected readonly showForm = signal(false);
   protected readonly saving = signal(false);
+  protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
+  protected readonly loadError = signal<string | null>(null);
 
   protected readonly form = this.fb.nonNullable.group({
     category: ['transport' as ExpenseCategory, Validators.required],
@@ -134,8 +147,32 @@ export class ExpensesComponent {
     this.reload();
   }
 
-  private reload(): void {
-    this.expenseService.list().subscribe((collection) => this.expenses.set(collection.member));
+  reload(): void {
+    this.loading.set(true);
+    this.loadError.set(null);
+    this.expenseService.list().subscribe({
+      next: (collection) => {
+        this.expenses.set(collection.member);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.loadError.set('Impossible de charger les dépenses.');
+      },
+    });
+  }
+
+  toggleForm(): void {
+    if (this.showForm()) {
+      this.form.reset({
+        category: 'transport',
+        amount: 0,
+        expenseDate: new Date().toISOString().slice(0, 10),
+        description: '',
+      });
+      this.error.set(null);
+    }
+    this.showForm.set(!this.showForm());
   }
 
   submit(): void {

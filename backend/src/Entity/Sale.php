@@ -181,7 +181,12 @@ class Sale implements CompanyOwnedInterface
             $total = bcadd($total, $item->getTotalPrice(), 2);
         }
 
-        return bcsub($total, $this->discount, 2);
+        $total = bcsub($total, $this->discount, 2);
+
+        // Defense in depth: the discount is validated against the items total
+        // at creation time, but never let a negative total reach the API or
+        // the stats aggregates that sum it.
+        return bccomp($total, '0.00', 2) < 0 ? '0.00' : $total;
     }
 
     #[Groups(['sale:read'])]

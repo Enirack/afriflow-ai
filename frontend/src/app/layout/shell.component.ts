@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../core/auth/auth.service';
 import { CopilotWidgetComponent } from '../shared/copilot/copilot-widget.component';
@@ -8,13 +8,17 @@ import { CopilotWidgetComponent } from '../shared/copilot/copilot-widget.compone
   imports: [RouterOutlet, RouterLink, RouterLinkActive, CopilotWidgetComponent],
   template: `
     <div class="shell">
-      <aside class="sidebar">
+      @if (sidebarOpen()) {
+        <div class="backdrop" (click)="sidebarOpen.set(false)"></div>
+      }
+
+      <aside class="sidebar" [class.open]="sidebarOpen()">
         <div class="brand">
           <span class="brand-mark">AF</span>
           <span class="brand-name">AfriFlow AI</span>
         </div>
 
-        <nav class="nav">
+        <nav class="nav" (click)="sidebarOpen.set(false)">
           <a routerLink="/dashboard" routerLinkActive="active">Tableau de bord</a>
           <a routerLink="/sales" routerLinkActive="active">Ventes</a>
           <a routerLink="/customers" routerLinkActive="active">Clients</a>
@@ -25,6 +29,14 @@ import { CopilotWidgetComponent } from '../shared/copilot/copilot-widget.compone
 
       <div class="main">
         <header class="topbar">
+          <button
+            type="button"
+            class="menu-btn"
+            (click)="sidebarOpen.set(!sidebarOpen())"
+            aria-label="Ouvrir le menu"
+          >
+            ☰
+          </button>
           <div class="company">{{ auth.currentUser()?.company?.name }}</div>
           <div class="user">
             <span>{{ auth.currentUser()?.fullName }}</span>
@@ -57,6 +69,50 @@ import { CopilotWidgetComponent } from '../shared/copilot/copilot-widget.compone
         display: flex;
         flex-direction: column;
         padding: 20px 0;
+      }
+
+      .backdrop {
+        display: none;
+      }
+
+      .menu-btn {
+        display: none;
+        border: none;
+        background: none;
+        font-size: 20px;
+        cursor: pointer;
+        color: var(--color-text);
+        padding: 4px 8px;
+      }
+
+      @media (max-width: 768px) {
+        .sidebar {
+          position: fixed;
+          inset: 0 auto 0 0;
+          z-index: 110;
+          transform: translateX(-100%);
+          transition: transform 0.2s ease;
+        }
+
+        .sidebar.open {
+          transform: translateX(0);
+        }
+
+        .backdrop {
+          display: block;
+          position: fixed;
+          inset: 0;
+          background: rgba(16, 24, 32, 0.4);
+          z-index: 100;
+        }
+
+        .menu-btn {
+          display: inline-flex;
+        }
+
+        .content {
+          padding: 18px;
+        }
       }
 
       .brand {
@@ -146,6 +202,7 @@ import { CopilotWidgetComponent } from '../shared/copilot/copilot-widget.compone
 })
 export class ShellComponent implements OnInit {
   protected readonly auth = inject(AuthService);
+  protected readonly sidebarOpen = signal(false);
 
   ngOnInit(): void {
     if (!this.auth.currentUser()) {

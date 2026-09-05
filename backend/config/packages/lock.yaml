@@ -1,2 +1,10 @@
 framework:
     lock: '%env(LOCK_DSN)%'
+
+when@test:
+    framework:
+        # Tests run sequentially in a single process (no real concurrency to
+        # guard against), and LOCK_DSN's "database" hostname only resolves
+        # inside the docker-compose network — not in CI or a bare `phpunit`
+        # run. A local, dependency-free store avoids both problems.
+        lock: 'flock'

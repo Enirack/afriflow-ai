@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { SaleService } from '../../core/services/sale.service';
 import { StatsRange, StatsService } from '../../core/services/stats.service';
+import { CopilotService } from '../../core/services/copilot.service';
 import { RevenuePoint, StatsSummary, TopCustomer, TopProduct } from '../../core/models/stats.model';
 import { Sale, SALE_STATUS_LABELS } from '../../core/models/sale.model';
 import { FcfaPipe } from '../../shared/pipes/fcfa.pipe';
@@ -20,36 +21,58 @@ type Period = 'today' | 'week' | 'month';
         <h1>Tableau de bord</h1>
         <p class="page-subtitle">Vue d'ensemble de votre activité.</p>
       </div>
-      <div class="period-switch">
+      <div class="header-actions">
         <button
           type="button"
-          class="btn"
-          [class.btn-primary]="period() === 'today'"
-          [class.btn-secondary]="period() !== 'today'"
-          (click)="setPeriod('today')"
+          class="btn btn-secondary"
+          (click)="runAnalysis()"
+          [disabled]="analyzing()"
         >
-          Aujourd'hui
+          {{ analyzing() ? 'Analyse en cours...' : '✨ Analyser mon activité' }}
         </button>
-        <button
-          type="button"
-          class="btn"
-          [class.btn-primary]="period() === 'week'"
-          [class.btn-secondary]="period() !== 'week'"
-          (click)="setPeriod('week')"
-        >
-          Cette semaine
-        </button>
-        <button
-          type="button"
-          class="btn"
-          [class.btn-primary]="period() === 'month'"
-          [class.btn-secondary]="period() !== 'month'"
-          (click)="setPeriod('month')"
-        >
-          Ce mois
-        </button>
+        <div class="period-switch">
+          <button
+            type="button"
+            class="btn"
+            [class.btn-primary]="period() === 'today'"
+            [class.btn-secondary]="period() !== 'today'"
+            (click)="setPeriod('today')"
+          >
+            Aujourd'hui
+          </button>
+          <button
+            type="button"
+            class="btn"
+            [class.btn-primary]="period() === 'week'"
+            [class.btn-secondary]="period() !== 'week'"
+            (click)="setPeriod('week')"
+          >
+            Cette semaine
+          </button>
+          <button
+            type="button"
+            class="btn"
+            [class.btn-primary]="period() === 'month'"
+            [class.btn-secondary]="period() !== 'month'"
+            (click)="setPeriod('month')"
+          >
+            Ce mois
+          </button>
+        </div>
       </div>
     </div>
+
+    @if (analysisReport()) {
+      <div class="card report-card">
+        <div class="card-header">
+          <h2>Rapport d'activité</h2>
+          <button type="button" class="btn btn-secondary" (click)="analysisReport.set(null)">
+            Fermer
+          </button>
+        </div>
+        <pre class="report-text">{{ analysisReport() }}</pre>
+      </div>
+    }
 
     <div class="stats-grid">
       <div class="card stat-card">
@@ -187,9 +210,27 @@ type Period = 'today' | 'week' | 'month';
         margin: 0;
       }
 
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
       .period-switch {
         display: flex;
         gap: 8px;
+      }
+
+      .report-card {
+        margin-bottom: 20px;
+      }
+
+      .report-text {
+        font-family: inherit;
+        white-space: pre-wrap;
+        font-size: 14px;
+        line-height: 1.6;
+        margin: 0;
       }
 
       .stats-grid {
@@ -248,6 +289,10 @@ type Period = 'today' | 'week' | 'month';
 export class DashboardComponent {
   private readonly statsService = inject(StatsService);
   private readonly saleService = inject(SaleService);
+  private readonly copilotService = inject(CopilotService);
+
+  protected readonly analyzing = signal(false);
+  protected readonly analysisReport = signal<string | null>(null);
 
   protected readonly Number = Number;
   protected readonly period = signal<Period>('month');
@@ -266,6 +311,20 @@ export class DashboardComponent {
   setPeriod(period: Period): void {
     this.period.set(period);
     this.loadStats();
+  }
+
+  runAnalysis(): void {
+    this.analyzing.set(true);
+    this.copilotService.analyze().subscribe({
+      next: ({ report }) => {
+        this.analysisReport.set(report);
+        this.analyzing.set(false);
+      },
+      error: () => {
+        this.analysisReport.set("Impossible de générer le rapport pour le moment.");
+        this.analyzing.set(false);
+      },
+    });
   }
 
   private range(): StatsRange {

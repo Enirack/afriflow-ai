@@ -95,6 +95,21 @@ Fonction phare : **« Analyser mon activité »**, qui génère un rapport
 automatique (performance, produit phare, points d'attention, recommandations,
 objectif suggéré pour le mois suivant).
 
+Implémentation concrète (backend, via l'[API Claude](https://console.anthropic.com)
+d'Anthropic, modèle `claude-opus-5`) :
+
+- `POST /api/copilot/ask` — boucle de function calling : le modèle choisit
+  parmi 5 outils métier (`get_sales_summary`, `get_top_products`,
+  `get_top_customers`, `get_customers_with_unpaid_balance`,
+  `get_expenses_by_category`), chacun exécutant une requête Doctrine réelle
+  scopée à l'entreprise de l'utilisateur, avant de formuler sa réponse.
+- `POST /api/copilot/analyze` — agrège les statistiques du mois en cours puis
+  demande au modèle de rédiger le rapport structuré en un seul appel.
+
+Nécessite une clé `ANTHROPIC_API_KEY` (voir [Démarrage rapide](#démarrage-rapide)).
+Sans clé configurée, ces deux endpoints renvoient une erreur — le reste de
+l'application fonctionne normalement.
+
 ## Architecture
 
 ```text
@@ -127,7 +142,7 @@ objectif suggéré pour le mois suivant).
 | Backend           | Symfony 8, PHP 8.4, API Platform          |
 | Base de données   | PostgreSQL 16, Doctrine ORM               |
 | Authentification  | JWT (LexikJWTAuthenticationBundle)        |
-| IA                | LLM + function calling sur outils métier  |
+| IA                | API Claude (Anthropic), function calling  |
 | Infrastructure    | Docker, Docker Compose                    |
 | CI                | GitHub Actions                            |
 
@@ -144,6 +159,7 @@ objectif suggéré pour le mois suivant).
 git clone https://github.com/<ton-compte>/afriflow-ai.git
 cd afriflow-ai
 cp backend/.env backend/.env.local   # puis ajuster les secrets si besoin
+echo "ANTHROPIC_API_KEY=sk-ant-..." >> backend/.env.local   # requis pour le copilote IA
 docker compose up -d
 ```
 
@@ -240,7 +256,8 @@ paiement enregistré via `POST /api/payments`.
       produits, dépenses — logiciel utilisable de bout en bout
 - [x] Jour 4 — Business intelligence : endpoints d'agrégation (`/api/stats/*`),
       sélecteur de période, graphique d'évolution du CA, top produits/clients
-- [ ] Jour 5 — Copilote IA : function calling sur les données métier
+- [x] Jour 5 — Copilote IA : chat avec function calling (API Claude) sur les
+      données métier réelles, rapport d'activité automatique
 - [ ] Jour 6 — Audit qualité : sécurité, UX, accessibilité, tests
 - [ ] Jour 7 — Déploiement : environnement de démo, documentation finale
 

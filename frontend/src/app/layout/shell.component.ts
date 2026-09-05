@@ -1,10 +1,11 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../core/auth/auth.service';
+import { CopilotWidgetComponent } from '../shared/copilot/copilot-widget.component';
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, CopilotWidgetComponent],
   template: `
     <div class="shell">
       <aside class="sidebar">
@@ -37,6 +38,8 @@ import { AuthService } from '../core/auth/auth.service';
           <router-outlet />
         </main>
       </div>
+
+      <app-copilot-widget />
     </div>
   `,
   styles: [

@@ -174,8 +174,44 @@ npm start
 L'API suit une architecture REST exposée par API Platform, avec documentation
 OpenAPI générée automatiquement et consultable sur `/api`.
 
-Ressources principales : `Company`, `User`, `Customer`, `Product`, `Sale`,
-`SaleItem`, `Expense`, `Payment`.
+Ressources principales : `Customer`, `Product`, `Sale` (avec ses `SaleItem`),
+`Expense`, `Payment`. Chaque entreprise ne voit que ses propres données
+(isolation multi-tenant appliquée au niveau de la couche Doctrine, voir
+[Sécurité](#sécurité)).
+
+### Authentification
+
+```bash
+# 1. Créer un compte (entreprise + premier utilisateur admin)
+curl -X POST http://localhost:8000/api/register \
+  -H "Content-Type: application/json" \
+  -d '{"companyName":"Boutique Awa","fullName":"Awa Diallo","email":"awa@boutique-awa.sn","password":"password123"}'
+
+# 2. Se connecter pour obtenir un token JWT
+curl -X POST http://localhost:8000/api/login_check \
+  -H "Content-Type: application/json" \
+  -d '{"email":"awa@boutique-awa.sn","password":"password123"}'
+
+# 3. Appeler l'API avec le token
+curl http://localhost:8000/api/me -H "Authorization: Bearer <token>"
+```
+
+### Enregistrer une vente
+
+```bash
+curl -X POST http://localhost:8000/api/sales \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/ld+json" \
+  -d '{
+    "customerId": 1,
+    "paymentMethod": "mobile_money",
+    "items": [{"productId": 1, "quantity": 2}]
+  }'
+```
+
+La réponse inclut `totalAmount`, `amountPaid`, `balanceDue` et `status`
+(`unpaid` / `partially_paid` / `paid`), recalculés automatiquement à chaque
+paiement enregistré via `POST /api/payments`.
 
 ## Sécurité
 
@@ -188,7 +224,8 @@ Ressources principales : `Company`, `User`, `Customer`, `Product`, `Sale`,
 ## Roadmap
 
 - [x] Jour 1 — Architecture : scaffolding Angular/Symfony, Docker, CI, README
-- [ ] Jour 2 — Backend : entités, migrations, API REST, authentification
+- [x] Jour 2 — Backend : entités, migrations, API REST, authentification JWT,
+      isolation multi-tenant, tests fonctionnels
 - [ ] Jour 3 — Frontend : auth, dashboard, ventes, clients, dépenses
 - [ ] Jour 4 — Statistiques : CA, bénéfices, top produits/clients, filtres
 - [ ] Jour 5 — Copilote IA : function calling sur les données métier

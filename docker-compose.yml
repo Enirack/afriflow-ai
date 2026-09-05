@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: afriflow
       POSTGRES_PASSWORD: afriflow
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - afriflow_db:/var/lib/postgresql/data
     healthcheck:

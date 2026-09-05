@@ -39,6 +39,9 @@ jobs:
       - name: Check container is valid
         run: php bin/console lint:container
 
+      - name: Generate JWT keypair
+        run: php bin/console lexik:jwt:generate-keypair --skip-if-exists --no-interaction
+
       - name: Run migrations
         env:
           APP_ENV: test

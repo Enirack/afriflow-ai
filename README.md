@@ -226,7 +226,8 @@ paiement enregistré via `POST /api/payments`.
 - [x] Jour 1 — Architecture : scaffolding Angular/Symfony, Docker, CI, README
 - [x] Jour 2 — Backend : entités, migrations, API REST, authentification JWT,
       isolation multi-tenant, tests fonctionnels
-- [ ] Jour 3 — Frontend : auth, dashboard, ventes, clients, dépenses
+- [x] Jour 3 — Frontend : auth, dashboard, ventes (avec paiements), clients,
+      produits, dépenses — logiciel utilisable de bout en bout
 - [ ] Jour 4 — Statistiques : CA, bénéfices, top produits/clients, filtres
 - [ ] Jour 5 — Copilote IA : function calling sur les données métier
 - [ ] Jour 6 — Audit qualité : sécurité, UX, accessibilité, tests

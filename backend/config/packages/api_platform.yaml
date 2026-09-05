@@ -1,5 +1,6 @@
 api_platform:
-    title: Hello API Platform
+    title: AfriFlow AI API
+    description: API de gestion des ventes, clients, produits et dépenses pour PME africaines.
     version: 1.0.0
     defaults:
         stateless: true

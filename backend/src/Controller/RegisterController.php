@@ -30,10 +30,12 @@ final class RegisterController extends AbstractController
     {
         $limit = $this->registerLimiter->create($request->getClientIp())->consume();
         if (!$limit->isAccepted()) {
+            $retryAfterSeconds = max(0, $limit->getRetryAfter()->getTimestamp() - time());
+
             return new JsonResponse(
                 ['error' => 'Trop de tentatives, réessayez plus tard.'],
                 429,
-                ['Retry-After' => (string) $limit->getRetryAfter()->getTimestamp()],
+                ['Retry-After' => (string) $retryAfterSeconds],
             );
         }
 

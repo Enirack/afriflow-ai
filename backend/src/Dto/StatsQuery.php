@@ -30,11 +30,11 @@ class StatsQuery
 
     public function validateRange(ExecutionContextInterface $context): void
     {
-        if (null === $this->from || null === $this->to) {
-            return;
-        }
+        // Validate the *effective* range (defaults applied), not just the raw
+        // fields: supplying only one of from/to must not bypass the cap below.
+        [$from, $to] = $this->range();
 
-        if ($this->from > $this->to) {
+        if ($from > $to) {
             $context->buildViolation('"from" doit être antérieur ou égal à "to".')
                 ->atPath('from')
                 ->addViolation();
@@ -42,7 +42,7 @@ class StatsQuery
             return;
         }
 
-        $days = $this->from->diff($this->to)->days;
+        $days = $from->diff($to)->days;
         if ($days > self::MAX_RANGE_DAYS) {
             $context->buildViolation(sprintf('La période demandée ne peut pas dépasser %d jours.', self::MAX_RANGE_DAYS))
                 ->atPath('to')

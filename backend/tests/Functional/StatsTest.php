@@ -93,4 +93,21 @@ class StatsTest extends WebTestCase
         $this->apiRequest($client, 'GET', '/api/stats/summary?from=2026-06-01&to=2026-01-01', $token);
         self::assertResponseStatusCodeSame(422);
     }
+
+    public function testExcessiveRangeCannotBeSmuggledByOmittingOneBound(): void
+    {
+        $client = static::createClient();
+
+        $this->registerCompany($client, 'Boutique Awa', 'daterange-onesided@boutique-awa.sn');
+        $token = $this->login($client, 'daterange-onesided@boutique-awa.sn');
+
+        // Only "to" supplied: "from" defaults to the start of the current
+        // month, so this must still be rejected as an excessive range.
+        $this->apiRequest($client, 'GET', '/api/stats/revenue-series?to=9999-12-31', $token);
+        self::assertResponseStatusCodeSame(422);
+
+        // Only "from" supplied: "to" defaults to now.
+        $this->apiRequest($client, 'GET', '/api/stats/revenue-series?from=0001-01-01', $token);
+        self::assertResponseStatusCodeSame(422);
+    }
 }

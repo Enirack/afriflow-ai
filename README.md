@@ -250,7 +250,9 @@ paiement enregistré via `POST /api/payments`.
   massive de comptes.
 - Validations métier au-delà du simple typage : impossible de survendre un
   produit, d'appliquer une remise supérieure au total d'une vente, ou
-  d'enregistrer un paiement supérieur au solde dû.
+  d'enregistrer un paiement supérieur au solde dû. Ces vérifications sont
+  protégées par des verrous (`symfony/lock`, backés par PostgreSQL) contre
+  les écritures concurrentes sur un même produit ou une même vente.
 - Plages de dates des statistiques bornées (366 jours max) pour éviter un
   déni de service par requête `from`/`to` disproportionnée.
 - Validation des entrées via le composant Validator de Symfony.

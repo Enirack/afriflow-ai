@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { SaleService } from '../../core/services/sale.service';
@@ -313,7 +313,18 @@ export class DashboardComponent {
   protected readonly topCustomers = signal<TopCustomer[]>([]);
   protected readonly revenueSeries = signal<RevenuePoint[]>([]);
   protected readonly recentSales = signal<Sale[]>([]);
-  protected readonly loadError = signal<string | null>(null);
+
+  // Kept as two independent signals (rather than one shared `loadError`) so
+  // the stats load and the recent-sales load can't clobber each other's
+  // error state when they resolve at different times.
+  private readonly statsError = signal<string | null>(null);
+  private readonly recentSalesError = signal<string | null>(null);
+  protected readonly loadError = computed(() => this.statsError() ?? this.recentSalesError());
+
+  // Bumped on every loadStats() call; a response is only applied if it's
+  // still the most recent request, so switching periods quickly can't have
+  // a slower, stale response overwrite a newer one.
+  private statsRequestId = 0;
 
   constructor() {
     this.reloadAll();
@@ -362,6 +373,7 @@ export class DashboardComponent {
 
   private loadStats(): void {
     const range = this.range();
+    const requestId = ++this.statsRequestId;
 
     forkJoin({
       summary: this.statsService.summary(range),
@@ -370,14 +382,20 @@ export class DashboardComponent {
       revenueSeries: this.statsService.revenueSeries(range),
     }).subscribe({
       next: ({ summary, topProducts, topCustomers, revenueSeries }) => {
+        if (requestId !== this.statsRequestId) {
+          return; // a newer period switch has already superseded this request
+        }
         this.summary.set(summary);
         this.topProducts.set(topProducts);
         this.topCustomers.set(topCustomers);
         this.revenueSeries.set(revenueSeries);
-        this.loadError.set(null);
+        this.statsError.set(null);
       },
       error: () => {
-        this.loadError.set('Impossible de charger les statistiques.');
+        if (requestId !== this.statsRequestId) {
+          return;
+        }
+        this.statsError.set('Impossible de charger les statistiques.');
       },
     });
   }
@@ -389,10 +407,10 @@ export class DashboardComponent {
           (a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime(),
         );
         this.recentSales.set(sorted.slice(0, 5));
-        this.loadError.set(null);
+        this.recentSalesError.set(null);
       },
       error: () => {
-        this.loadError.set('Impossible de charger les ventes récentes.');
+        this.recentSalesError.set('Impossible de charger les ventes récentes.');
       },
     });
   }

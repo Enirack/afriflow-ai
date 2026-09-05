@@ -18,7 +18,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   return next(authorizedReq).pipe(
     catchError((error: unknown) => {
       if (error instanceof HttpErrorResponse && error.status === 401 && !isAuthEndpoint) {
-        notifications.show('Votre session a expiré, veuillez vous reconnecter.');
+        // Worded generically: a 401 here can also mean a malformed/rejected
+        // token, not only genuine expiry, so avoid asserting a specific cause.
+        notifications.show('Votre session n\'est plus valide, veuillez vous reconnecter.');
         auth.logout();
       }
 

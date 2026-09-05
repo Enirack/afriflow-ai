@@ -33,7 +33,8 @@ import { CopilotWidgetComponent } from '../shared/copilot/copilot-widget.compone
             type="button"
             class="menu-btn"
             (click)="sidebarOpen.set(!sidebarOpen())"
-            aria-label="Ouvrir le menu"
+            [attr.aria-label]="sidebarOpen() ? 'Fermer le menu' : 'Ouvrir le menu'"
+            [attr.aria-expanded]="sidebarOpen()"
           >
             ☰
           </button>

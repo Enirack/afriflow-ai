@@ -179,6 +179,16 @@ Ressources principales : `Customer`, `Product`, `Sale` (avec ses `SaleItem`),
 (isolation multi-tenant appliquée au niveau de la couche Doctrine, voir
 [Sécurité](#sécurité)).
 
+Une couche de statistiques (`/api/stats/*`) expose en plus, pour une période
+donnée (`?from=&to=`) :
+
+| Endpoint                     | Contenu                                              |
+| ----------------------------- | ----------------------------------------------------- |
+| `GET /api/stats/summary`      | CA, bénéfice estimé, dépenses, créances, nb de ventes |
+| `GET /api/stats/top-products` | Produits les plus vendus (quantité + CA généré)       |
+| `GET /api/stats/top-customers`| Meilleurs clients (dépensé + impayé)                  |
+| `GET /api/stats/revenue-series`| Évolution du CA jour par jour, pour le graphique     |
+
 ### Authentification
 
 ```bash
@@ -228,7 +238,8 @@ paiement enregistré via `POST /api/payments`.
       isolation multi-tenant, tests fonctionnels
 - [x] Jour 3 — Frontend : auth, dashboard, ventes (avec paiements), clients,
       produits, dépenses — logiciel utilisable de bout en bout
-- [ ] Jour 4 — Statistiques : CA, bénéfices, top produits/clients, filtres
+- [x] Jour 4 — Business intelligence : endpoints d'agrégation (`/api/stats/*`),
+      sélecteur de période, graphique d'évolution du CA, top produits/clients
 - [ ] Jour 5 — Copilote IA : function calling sur les données métier
 - [ ] Jour 6 — Audit qualité : sécurité, UX, accessibilité, tests
 - [ ] Jour 7 — Déploiement : environnement de démo, documentation finale

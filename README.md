@@ -10,15 +10,29 @@ assistant IA branché directement sur la base de données de l'entreprise.
 
 ---
 
+## Captures d'écran
+
+| Connexion | Tableau de bord |
+| --- | --- |
+| ![Connexion](docs/screenshots/login.jpg) | ![Tableau de bord](docs/screenshots/dashboard.jpg) |
+
+| Ventes | Produits |
+| --- | --- |
+| ![Ventes](docs/screenshots/sales.jpg) | ![Produits](docs/screenshots/products.jpg) |
+
+---
+
 ## Sommaire
 
+- [Captures d'écran](#captures-décran)
 - [Le problème](#le-problème)
 - [La solution](#la-solution)
 - [Fonctionnalités](#fonctionnalités)
 - [Le copilote IA](#le-copilote-ia)
 - [Architecture](#architecture)
 - [Stack technique](#stack-technique)
-- [Démarrage rapide](#démarrage-rapide)
+- [Installation](#installation)
+- [Déploiement en production](#déploiement-en-production)
 - [API](#api)
 - [Sécurité](#sécurité)
 - [Roadmap](#roadmap)
@@ -146,44 +160,107 @@ l'application fonctionne normalement.
 | Infrastructure    | Docker, Docker Compose                    |
 | CI                | GitHub Actions                            |
 
-## Démarrage rapide
+## Installation
 
 ### Prérequis
 
-- Docker et Docker Compose
-- (optionnel, hors Docker) PHP 8.4+, Composer, Node.js 22+
+- Docker et Docker Compose (recommandé — c'est le seul prérequis dans ce cas)
+- Sans Docker : PHP 8.4+, Composer, Node.js 22+, PostgreSQL 16
 
 ### Avec Docker (recommandé)
 
 ```bash
 git clone https://github.com/<ton-compte>/afriflow-ai.git
 cd afriflow-ai
-cp backend/.env backend/.env.local   # puis ajuster les secrets si besoin
+cp backend/.env backend/.env.local
 echo "ANTHROPIC_API_KEY=sk-ant-..." >> backend/.env.local   # requis pour le copilote IA
 docker compose up -d
 ```
 
+C'est tout : au premier démarrage, le conteneur backend génère lui-même sa
+paire de clés JWT et applique les migrations avant de démarrer (voir
+`backend/docker-entrypoint.sh`) — pas d'étape manuelle supplémentaire, même
+sur un clone tout neuf sans `vendor/` ni `node_modules/` locaux (les
+dépendances sont installées **dans** les conteneurs, sur des volumes dédiés,
+pas sur le dossier du host).
+
 - Frontend : http://localhost:4200
 - API : http://localhost:8000
 - Documentation API (OpenAPI) : http://localhost:8000/api
-- Adminer (DB) : http://localhost:8080
+- Adminer (DB) : http://localhost:8080 (serveur `database`, base `afriflow`,
+  utilisateur/mot de passe `afriflow`)
+
+Pour explorer l'application tout de suite avec des données réalistes plutôt
+que de créer un compte à la main :
+
+```bash
+docker compose exec backend php bin/console app:seed-demo
+```
+
+Crée l'entreprise « Boutique Awa » avec des produits, clients, ventes
+(payées, partielles, impayées) et dépenses des dernières semaines. Identifiants
+affichés à la fin de la commande : `demo@afriflow.ai` / `demo1234`.
 
 ### Sans Docker
 
 ```bash
+# Base de données (PostgreSQL 16 déjà installé et démarré)
+createdb afriflow
+
 # Backend
 cd backend
 composer install
+echo 'DATABASE_URL="postgresql://<user>:<pass>@127.0.0.1:5432/afriflow?serverVersion=16&charset=utf8"' >> .env.local
 php bin/console lexik:jwt:generate-keypair --skip-if-exists
-php bin/console doctrine:database:create
-php bin/console doctrine:migrations:migrate
-symfony serve -d
+php bin/console doctrine:migrations:migrate --no-interaction
+php bin/console app:seed-demo   # optionnel : données de démo
+symfony serve -d               # ou : php -S 127.0.0.1:8000 -t public
 
-# Frontend
+# Frontend (dans un autre terminal)
 cd frontend
 npm install
 npm start
 ```
+
+### Dépannage
+
+- **Port déjà utilisé (5432, 8000, 4200...)** : un PostgreSQL local ou un
+  autre projet peut déjà occuper ces ports. Le `docker-compose.yml` expose
+  volontairement PostgreSQL sur le port hôte **5433** (et non 5432) pour
+  cette raison. Si 8000/4200/8080 sont pris chez toi, change simplement le
+  port hôte dans `docker-compose.yml` (ex. `"8090:8000"`) — le réseau interne
+  Docker entre les services n'est pas affecté.
+- **`docker compose up` échoue après un crash de Docker Desktop** : relance
+  simplement `docker compose up -d` ; les volumes nommés (`backend_vendor`,
+  `frontend_node_modules`, `afriflow_db`) survivent au crash. Si le frontend
+  affiche une erreur de dépendances corrompues au démarrage, force une
+  réinstallation propre : `docker compose down frontend && docker volume rm
+  afriflow_frontend_node_modules && docker compose up -d frontend`.
+- **Le copilote IA répond par une erreur générique** : vérifie que
+  `ANTHROPIC_API_KEY` est bien défini dans `backend/.env.local` (ou dans les
+  variables d'environnement du conteneur backend), puis redémarre le service
+  backend.
+
+## Déploiement en production
+
+Ce dépôt est configuré pour une démo/un portfolio, pas pour de la charge
+réelle — quelques points à revoir avant un vrai déploiement :
+
+- Définir `APP_ENV=prod` (et ne pas monter `APP_DEBUG=1`) pour le backend :
+  les erreurs ne doivent jamais exposer de stack trace en production.
+- Remplacer le serveur de dev `php -S` (utilisé par
+  `infrastructure/backend/Dockerfile` pour rester simple) par FrankenPHP,
+  PHP-FPM + Nginx, ou tout serveur adapté à de la charge concurrente.
+- Générer un `APP_SECRET` et une passphrase JWT propres à l'environnement
+  (`.env` ne contient que des valeurs de développement), et gérer les secrets
+  via un vault plutôt que des variables d'environnement en clair.
+- Si le backend est répliqué sur plusieurs conteneurs, `LOCK_DSN` doit
+  pointer vers un store partagé atteignable par toutes les instances (le
+  store PostgreSQL avisory déjà configuré convient, à condition que toutes
+  les instances parlent à la même base).
+- Mettre un reverse proxy / CDN devant le frontend buildé
+  (`ng build`, servi par `infrastructure/frontend/Dockerfile` via Nginx) au
+  lieu du serveur de dev Angular utilisé par `docker-compose.yml`.
 
 ## API
 
@@ -273,7 +350,9 @@ paiement enregistré via `POST /api/payments`.
 - [x] Jour 6 — Audit qualité : faille IDOR corrigée, validations financières
       (survente, remise/paiement excessifs), rate limiting, N+1, gestion
       d'erreurs et sidebar responsive côté frontend
-- [ ] Jour 7 — Déploiement : environnement de démo, documentation finale
+- [x] Jour 7 — Déploiement : `docker compose up` validé de bout en bout sur un
+      clone neuf, commande de seed de démonstration, captures d'écran,
+      documentation d'installation et de déploiement, `v1.0.0`
 
 ## Licence
 

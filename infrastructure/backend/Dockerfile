@@ -21,9 +21,11 @@ COPY composer.json composer.lock ./
 RUN composer install --no-interaction --no-scripts --no-progress --prefer-dist
 
 COPY . .
-RUN composer dump-autoload --optimize
+RUN composer dump-autoload --optimize \
+    && chmod +x docker-entrypoint.sh
 
 ENV APP_ENV=prod
 EXPOSE 8000
 
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]

@@ -21,11 +21,22 @@ services:
       dockerfile: ../infrastructure/backend/Dockerfile
     volumes:
       - ./backend:/app
+      # Named volumes for vendor/var: without these, the bind mount above
+      # would hide the vendor/ installed during the image build behind an
+      # empty (or stale) host directory on a fresh clone.
+      - backend_vendor:/app/vendor
+      - backend_var:/app/var
     ports:
       - "8000:8000"
     environment:
       APP_ENV: dev
+      # Set explicitly (rather than left to backend/.env) because real
+      # environment variables always win over a bind-mounted .env.local —
+      # without this, a host-only .env.local (used for running the backend
+      # outside Docker) would silently leak its localhost/host-port values
+      # into the container.
       DATABASE_URL: postgresql://afriflow:afriflow@database:5432/afriflow?serverVersion=16&charset=utf8
+      LOCK_DSN: postgresql+advisory://afriflow:afriflow@database:5432/afriflow?serverVersion=16&charset=utf8
     depends_on:
       database:
         condition: service_healthy
@@ -35,6 +46,9 @@ services:
     working_dir: /app
     volumes:
       - ./frontend:/app
+      # Named volume so the bind mount above doesn't hide node_modules
+      # behind an empty host directory on a fresh clone.
+      - frontend_node_modules:/app/node_modules
     ports:
       - "4200:4200"
     command: sh -c "npm install && npm start -- --host 0.0.0.0"
@@ -50,3 +64,6 @@ services:
 
 volumes:
   afriflow_db:
+  backend_vendor:
+  backend_var:
+  frontend_node_modules:

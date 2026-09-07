@@ -7,4 +7,6 @@ fi
 
 php bin/console doctrine:migrations:migrate --no-interaction
 
-exec "$@"
+# Railway (and most PaaS providers) inject a dynamic $PORT the app must bind
+# to; docker-compose doesn't set it, so this still defaults to 8000 there.
+exec php -S "0.0.0.0:${PORT:-8000}" -t public

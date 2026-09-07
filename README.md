@@ -262,6 +262,59 @@ réelle — quelques points à revoir avant un vrai déploiement :
   (`ng build`, servi par `infrastructure/frontend/Dockerfile` via Nginx) au
   lieu du serveur de dev Angular utilisé par `docker-compose.yml`.
 
+### Déploiement Vercel (frontend) + Railway (backend)
+
+Vercel n'a pas de runtime PHP officiel et son modèle serverless (une requête =
+une invocation isolée, sans connexion persistante) est incompatible avec le
+verrouillage PostgreSQL (`symfony/lock`) qui protège les ventes/paiements
+contre les écritures concurrentes — le frontend Angular (statique après
+build) va sur Vercel, le backend Symfony va sur une plateforme à conteneurs
+longue durée comme Railway.
+
+**Backend sur Railway :**
+
+1. Nouveau projet Railway → *Deploy from GitHub repo* → sélectionner ce
+   dépôt. `railway.json` à la racine indique déjà à Railway d'utiliser
+   `infrastructure/backend/Dockerfile` avec `backend/` comme contexte de
+   build.
+2. Ajouter un service **PostgreSQL** (bouton *+ New* → *Database* →
+   *PostgreSQL*) dans le même projet Railway.
+3. Sur le service backend, définir les variables d'environnement :
+   - `DATABASE_URL` → référencer la variable de connexion du service Postgres
+     (`${{Postgres.DATABASE_URL}}` dans l'UI Railway), en gardant les query
+     params `?serverVersion=16&charset=utf8`
+   - `LOCK_DSN` → même valeur que `DATABASE_URL` mais avec le schéma
+     `postgresql+advisory://` à la place de `postgresql://`
+   - `APP_ENV=prod`
+   - `APP_SECRET` → générer une valeur propre (`openssl rand -hex 16`), ne
+     pas réutiliser celle de `.env`
+   - `JWT_PASSPHRASE` → générer une valeur propre, différente de `.env`
+   - `ANTHROPIC_API_KEY` → ta clé Claude
+   - `CORS_ALLOW_ORIGIN` → l'URL du frontend Vercel une fois connue, ex.
+     `^https://afriflow-ai\.vercel\.app$`
+4. Railway assigne un domaine public (`*.up.railway.app`) et injecte son
+   propre `$PORT` — le conteneur s'y adapte automatiquement
+   (`backend/docker-entrypoint.sh`). Note cette URL, elle sert à l'étape
+   suivante.
+5. Lance `docker compose exec backend php bin/console app:seed-demo`
+   équivalent sur Railway via son onglet *Shell* du service, si tu veux des
+   données de démo.
+
+**Frontend sur Vercel :**
+
+1. Modifier `frontend/src/environments/environment.ts` : remplacer
+   `apiUrl: '/api'` par l'URL Railway obtenue ci-dessus, ex.
+   `apiUrl: 'https://afriflow-backend-production.up.railway.app/api'`, et
+   commit/push.
+2. Nouveau projet Vercel → *Import Git Repository* → sélectionner ce dépôt.
+3. Dans les réglages du projet, définir **Root Directory** sur `frontend`.
+   Vercel détecte alors `frontend/vercel.json` (déjà présent dans le dépôt),
+   qui fixe la commande de build et le dossier de sortie
+   (`dist/frontend/browser`) et redirige toutes les routes vers `index.html`
+   (nécessaire pour le routing côté client d'Angular).
+4. Déployer. Une fois l'URL Vercel connue, retourner sur Railway et mettre à
+   jour `CORS_ALLOW_ORIGIN` avec cette URL exacte.
+
 ## API
 
 L'API suit une architecture REST exposée par API Platform, avec documentation

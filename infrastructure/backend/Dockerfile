@@ -27,5 +27,6 @@ RUN composer dump-autoload --optimize \
 ENV APP_ENV=prod
 EXPOSE 8000
 
+# docker-entrypoint.sh starts the server itself (binding to $PORT when the
+# platform provides one, e.g. Railway), so there's no separate CMD to pass it.
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]
